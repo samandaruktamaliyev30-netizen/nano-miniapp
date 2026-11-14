@@ -100,6 +100,22 @@
   .no { background: color-mix(in srgb, var(--bad) 13%, transparent); color: var(--bad); }
   .empty { color: var(--muted); padding: var(--s4) 0; }
 
+
+  /* Bosh sahifa: loyihalar */
+  .hello { margin: var(--s2) 0 var(--s4); }
+  .hello h1 { margin: 0; font-size: 24px; font-weight: 750; letter-spacing: -0.02em; }
+  .hello p { margin: 4px 0 0; color: var(--muted); }
+  .plist { display: grid; gap: var(--s2); }
+  .pitem { display: flex; align-items: center; gap: var(--s3); width: 100%; text-align: left; border: 2px solid transparent; background: var(--card); border-radius: 16px; padding: 14px var(--s4); cursor: pointer; }
+  .pitem .mark { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 750; font-size: 17px; color: #fff; }
+  .pitem .nm { font-weight: 600; line-height: 1.25; }
+  .pitem .st { display: block; font-size: 13px; color: var(--muted); font-weight: 400; margin-top: 2px; }
+  .pitem .chev { margin-left: auto; color: var(--muted); font-size: 20px; }
+  .pitem[aria-pressed="true"] { border-color: var(--accent); }
+  .pitem .st.ok { color: var(--good); }
+  .sticky { position: sticky; bottom: 0; padding: var(--s3) 0 var(--s2); background: linear-gradient(transparent, var(--bg) 30%); }
+  .ptitle { font-size: 20px; font-weight: 750; letter-spacing: -0.01em; margin: 0 0 var(--s3); }
+  .back { border: 0; background: none; color: var(--accent); font-weight: 500; padding: 0; margin-bottom: var(--s3); cursor: pointer; }
   .skeleton { border-radius: 18px; background: var(--card); height: 230px; margin-top: var(--s4); animation: pulse 1.2s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: .55; } }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -110,13 +126,21 @@
 
 <div id="loading" class="skeleton" aria-label="Yuklanmoqda"></div>
 
-<!-- Statistika -->
-<main id="stats" class="hidden">
+<!-- Bosh sahifa: loyihalar -->
+<main id="home" class="hidden">
   <div class="topbar">
-    <strong>Statistika</strong>
+    <strong>Nano statistika</strong>
     <button id="toAdmin" class="admin-link hidden" type="button">So'rovlar<span id="reqBadge" class="badge hidden"></span></button>
   </div>
-  <nav id="projects" class="projects" aria-label="Loyihalar"></nav>
+  <div class="hello"><h1 id="helloName"></h1><p id="helloText"></p></div>
+  <div id="plist" class="plist"></div>
+  <div id="askBar" class="sticky hidden"><button id="send" class="btn" type="button">Ruxsat so'rash</button></div>
+</main>
+
+<!-- Statistika -->
+<main id="stats" class="hidden">
+  <button id="backHome" class="back" type="button">‹ Loyihalar</button>
+  <h1 id="ptitle" class="ptitle"></h1>
 
   <div class="periods" role="group" aria-label="Davr">
     <button type="button" data-p="day" aria-pressed="true">Kun</button>
@@ -130,21 +154,11 @@
   <div id="body"></div>
 </main>
 
-<!-- Ruxsat so'rash -->
-<main id="ask" class="hidden">
-  <div class="center">
-    <h1>Statistikani ko'rish</h1>
-    <p>O'z loyihangizni belgilang. So'rovingizni admin tasdiqlagach, statistika shu yerda ochiladi.</p>
-    <div id="pick" class="pick"></div>
-    <button id="send" class="btn" type="button" disabled>So'rov yuborish</button>
-  </div>
-</main>
-
 <!-- Admin -->
 <main id="admin" class="hidden">
   <div class="topbar">
     <strong>So'rovlar</strong>
-    <button id="toStats" class="admin-link" type="button">Statistikaga qaytish</button>
+    <button id="toStats" class="admin-link" type="button">Loyihalar</button>
   </div>
   <div id="reqList"></div>
   <section class="block">
@@ -163,7 +177,7 @@ if (tg) { tg.ready(); tg.expand(); }
 const initData = tg ? tg.initData : '';
 
 const $ = (id) => document.getElementById(id);
-const show = (id) => ['loading','stats','ask','admin','fail'].forEach(x => $(x).classList.toggle('hidden', x !== id));
+const show = (id) => ['loading','home','stats','admin','fail'].forEach(x => $(x).classList.toggle('hidden', x !== id));
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const haptic = (t) => { try { tg && tg.HapticFeedback.selectionChanged(); } catch (e) {} };
 
@@ -190,43 +204,58 @@ async function start() {
   if (!initData) { $('failText').textContent = 'Bu sahifa faqat Telegram\'dagi bot orqali ochiladi.'; return show('fail'); }
   try { me = await api('me'); }
   catch (e) { $('failText').textContent = e.message; return show('fail'); }
-  if (me.allowed.length) {
-    project = me.allowed[0];
-    show('stats'); renderProjects(); renderDays(); load();
-    if (me.isAdmin) { $('toAdmin').classList.remove('hidden'); refreshBadge(); }
-  } else renderAsk();
+  if (me.isAdmin) { $('toAdmin').classList.remove('hidden'); refreshBadge(); }
+  if (tg) tg.BackButton.onClick(goHome);
+  renderHome();
 }
 
-/* ---------- Ruxsat so'rash ---------- */
-function renderAsk() {
-  const pick = $('pick');
-  pick.innerHTML = me.projects.map(p => {
-    const pending = me.pending.includes(p);
-    return `<label><input type="radio" name="proj" value="${esc(p)}" ${pending ? 'disabled' : ''}> ${esc(p)}
-      ${pending ? '<span class="tag">Kutilmoqda</span>' : ''}</label>`;
+const MARK_COLORS = ['#3a6df0', '#8b5cf6', '#1f9d6b', '#e6a23c', '#d6453d', '#0ea5b7'];
+let picked = null;
+
+function renderHome() {
+  const first = (me.user.name || '').split(' ')[0];
+  $('helloName').textContent = 'Salom, ' + first;
+  $('helloText').textContent = me.isAdmin ? 'Loyihani tanlang — statistikasi ochiladi.'
+    : (me.allowed.length ? 'Loyihangizni tanlang.' : 'Loyihangizni belgilang va ruxsat so\'rang.');
+  $('plist').innerHTML = me.projects.map((p, i) => {
+    const ok = me.allowed.includes(p.name), wait = me.pending.includes(p.name);
+    const st = !p.connected ? 'Hali ulanmagan' : ok ? 'Statistikani ko\'rish' : wait ? 'So\'rov yuborilgan, kutilmoqda' : 'Ruxsat kerak';
+    return `<button class="pitem" type="button" data-i="${i}" aria-pressed="${picked === p.name}">
+      <span class="mark" style="background:${MARK_COLORS[i % MARK_COLORS.length]}">${esc(p.name.trim()[0] || '?')}</span>
+      <span class="nm">${esc(p.name)}<span class="st ${ok ? 'ok' : ''}">${st}</span></span>
+      ${ok ? '<span class="chev" aria-hidden="true">›</span>' : ''}</button>`;
   }).join('') || '<p class="empty">Hozircha loyiha yo\'q.</p>';
-  pick.onchange = () => { $('send').disabled = !pick.querySelector('input:checked'); haptic(); };
-  $('send').onclick = async () => {
-    const v = pick.querySelector('input:checked'); if (!v) return;
-    $('send').disabled = true; $('send').textContent = 'Yuborilmoqda…';
-    try {
-      await api('request', { project: v.value });
-      me.pending.push(v.value); renderAsk();
-      $('send').textContent = 'So\'rov yuborildi';
-      tg && tg.showAlert('So\'rov adminga yuborildi. Tasdiqlangach, botdan xabar keladi.');
-    } catch (e) { $('send').disabled = false; $('send').textContent = 'So\'rov yuborish'; tg ? tg.showAlert(e.message) : alert(e.message); }
-  };
-  show('ask');
+  $('plist').querySelectorAll('.pitem').forEach(b => b.onclick = () => {
+    const p = me.projects[+b.dataset.i]; haptic();
+    if (me.allowed.includes(p.name)) return openProject(p.name);
+    if (me.pending.includes(p.name)) return tg ? tg.showAlert('So\'rovingiz adminga yuborilgan. Tasdiqlangach, botdan xabar keladi.') : null;
+    picked = p.name; renderHome();
+  });
+  const can = picked && !me.pending.includes(picked) && !me.allowed.includes(picked);
+  $('askBar').classList.toggle('hidden', !can);
+  $('send').disabled = false; $('send').textContent = can ? '"' + picked + '" uchun ruxsat so\'rash' : 'Ruxsat so\'rash';
+  show('home'); if (tg) tg.BackButton.hide();
 }
+
+$('send').onclick = async () => {
+  if (!picked) return;
+  $('send').disabled = true; $('send').textContent = 'Yuborilmoqda…';
+  try {
+    await api('request', { project: picked });
+    me.pending.push(picked); picked = null; renderHome();
+    tg ? tg.showAlert('So\'rov adminga yuborildi. Tasdiqlangach, botdan xabar keladi.') : null;
+  } catch (e) { $('send').disabled = false; $('send').textContent = 'Ruxsat so\'rash'; tg ? tg.showAlert(e.message) : alert(e.message); }
+};
+
+function openProject(name) {
+  project = name; $('ptitle').textContent = name;
+  show('stats'); if (tg) tg.BackButton.show();
+  renderDays(); load();
+}
+function goHome() { show('home'); if (tg) tg.BackButton.hide(); }
+$('backHome').onclick = goHome;
 
 /* ---------- Loyihalar va sanalar ---------- */
-function renderProjects() {
-  const nav = $('projects');
-  nav.classList.toggle('hidden', me.allowed.length < 2);
-  nav.innerHTML = me.allowed.map(p => `<button class="chip" type="button" aria-pressed="${p === project}">${esc(p)}</button>`).join('');
-  nav.querySelectorAll('.chip').forEach((b, i) => b.onclick = () => { project = me.allowed[i]; haptic(); renderProjects(); load(); });
-}
-
 function renderDays() {
   const box = $('days');
   box.classList.toggle('hidden', period !== 'day');
@@ -277,6 +306,7 @@ async function load() {
 }
 
 function renderStats(d) {
+  if (d.notConnected) { $('body').innerHTML = '<section class="block"><p class="empty">Bu loyiha hali ulanmagan. Reklama kabineti va jadval ulangach, statistika shu yerda chiqadi.</p></section>'; return; }
   const ads = d.ads, s = d.sales, cur = ads ? ads.currency : '';
   const leads = ads ? ads.leads : 0, sales = s ? s.sales : 0, base = Math.max(leads, s ? s.total : 0, 1);
   const pct = (x) => Math.max(x ? 4 : 0, Math.round(x / base * 100));
@@ -301,6 +331,7 @@ function renderStats(d) {
 
   h += `<section class="block"><h2>Sotuv bo'limi</h2>`;
   if (d.salesError) h += `<p class="err">${esc(d.salesError)}</p>`;
+  else if (!s) h += `<p class="empty">Leadlar jadvali ulanmagan.</p>`;
   else if (!s.total) h += `<p class="empty">Bu davrda jadvalga lead tushmagan.</p>`;
   else {
     const entries = Object.entries(s.statuses).sort((x, y) => (ORDER.indexOf(x[0]) + 99 * (ORDER.indexOf(x[0]) < 0)) - (ORDER.indexOf(y[0]) + 99 * (ORDER.indexOf(y[0]) < 0)));
@@ -319,8 +350,8 @@ async function refreshBadge() {
   try { const a = await api('admin'); const n = a.requests.length;
     $('reqBadge').textContent = n; $('reqBadge').classList.toggle('hidden', !n); return a; } catch (e) { return null; }
 }
-$('toAdmin').onclick = async () => { show('admin'); $('reqList').innerHTML = '<div class="skeleton" style="height:90px"></div>'; renderAdmin(await refreshBadge()); };
-$('toStats').onclick = () => show('stats');
+$('toAdmin').onclick = async () => { show('admin'); if (tg) tg.BackButton.show(); $('reqList').innerHTML = '<div class="skeleton" style="height:90px"></div>'; renderAdmin(await refreshBadge()); };
+$('toStats').onclick = () => { show('home'); };
 
 function renderAdmin(a) {
   if (!a) { $('reqList').innerHTML = '<p class="err">Ma\'lumotni olib bo\'lmadi.</p>'; return; }
