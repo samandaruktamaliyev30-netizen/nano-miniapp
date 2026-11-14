@@ -116,6 +116,18 @@
   .sticky { position: sticky; bottom: 0; padding: var(--s3) 0 var(--s2); background: linear-gradient(transparent, var(--bg) 30%); }
   .ptitle { font-size: 20px; font-weight: 750; letter-spacing: -0.01em; margin: 0 0 var(--s3); }
   .back { border: 0; background: none; color: var(--accent); font-weight: 500; padding: 0; margin-bottom: var(--s3); cursor: pointer; }
+
+  /* Kampaniyalar */
+  .ccount { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s2); margin-bottom: var(--s3); }
+  .ccount div { background: var(--bg); border-radius: 12px; padding: 10px 12px; }
+  .ccount b { display: block; font-size: 22px; font-weight: 750; line-height: 1.1; }
+  .ccount span { font-size: 12px; color: var(--muted); }
+  .camp { padding: 12px 0; border-top: 1px solid var(--line); }
+  .camp .cn { display: flex; align-items: flex-start; gap: 8px; font-weight: 600; line-height: 1.3; }
+  .camp .cn i { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; }
+  .camp .cm { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 4px 0 0 16px; font-size: 13px; color: var(--muted); }
+  .camp .cm b { color: var(--text); font-weight: 600; }
+  .camp .tag { margin-left: auto; flex: none; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
   .skeleton { border-radius: 18px; background: var(--card); height: 230px; margin-top: var(--s4); animation: pulse 1.2s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: .55; } }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -328,6 +340,19 @@ function renderStats(d) {
     <div><dt>Bosishlar</dt><dd class="num">${int(ads.clicks)}</dd></div>
     <div><dt>CTR</dt><dd class="num">${ads.ctr.toFixed(2)}%</dd></div>
     <div><dt>1 bosish narxi</dt><dd class="num">${money(ads.cpc, cur)}</dd></div></dl></section>`;
+
+  if (ads && ads.campaigns) {
+    const c = ads.campaigns;
+    const ST = { active: ['Faol', '#1f9d6b'], paused: ['O\'chirilgan', '#8a93a6'], archived: ['Arxivda', '#8a93a6'], review: ['Tekshiruvda', '#e6a23c'], issue: ['Muammo bor', '#d6453d'] };
+    h += `<section class="block"><h2>Kampaniyalar</h2>
+      <div class="ccount num"><div><b>${c.total}</b><span>Jami</span></div><div><b style="color:var(--good)">${c.active}</b><span>Faol</span></div><div><b>${c.paused}</b><span>O'chirilgan</span></div></div>
+      ${c.other ? `<p class="note">Yana ${c.other} ta kampaniya tekshiruvda yoki muammoli.</p>` : ''}
+      ${c.list.length ? c.list.map(x => { const [lbl, col] = ST[x.status] || ST.paused; return `<div class="camp">
+        <div class="cn"><i style="background:${col}"></i><span>${esc(x.name)}</span><span class="tag" style="background:color-mix(in srgb, ${col} 14%, transparent);color:${col}">${lbl}</span></div>
+        <div class="cm num"><span>Sarf <b>${money(x.spend, cur)}</b></span><span>Lead <b>${int(x.leads)}</b></span>${x.cpl != null ? `<span>1 lead <b>${money(x.cpl, cur)}</b></span>` : ''}${x.budget ? `<span>Budjet <b>${money(x.budget, cur)}</b>/kun</span>` : x.lifetime ? `<span>Umumiy budjet <b>${money(x.lifetime, cur)}</b></span>` : ''}</div></div>`; }).join('')
+        : '<p class="empty">Kampaniya yo\'q.</p>'}
+    </section>`;
+  }
 
   h += `<section class="block"><h2>Sotuv bo'limi</h2>`;
   if (d.salesError) h += `<p class="err">${esc(d.salesError)}</p>`;
