@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nano statistika</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;750&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: var(--tg-theme-secondary-bg-color, #f1f2f6);
+    --card: var(--tg-theme-bg-color, #ffffff);
+    --text: var(--tg-theme-text-color, #15161a);
+    --muted: var(--tg-theme-hint-color, #7c8190);
+    --accent: var(--tg-theme-button-color, #3a6df0);
+    --on-accent: var(--tg-theme-button-text-color, #ffffff);
+    --line: color-mix(in srgb, var(--muted) 22%, transparent);
+    --good: #1f9d6b;
+    --bad: #d6453d;
+    --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 400 15px/1.45 "Onest", system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+         padding: var(--s3) var(--s4) calc(var(--s6) + env(safe-area-inset-bottom)); }
+  button { font: inherit; color: inherit; }
+  .num { font-variant-numeric: tabular-nums; }
+  .hidden { display: none !important; }
+
+  /* Loyihalar */
+  .projects { display: flex; gap: var(--s2); overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--s4)); padding: 0 var(--s4) var(--s3); }
+  .projects::-webkit-scrollbar { display: none; }
+  .chip { flex: none; border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 7px 14px; font-weight: 500; cursor: pointer; }
+  .chip[aria-pressed="true"] { background: var(--text); color: var(--card); border-color: var(--text); }
+
+  /* Davr */
+  .periods { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--card); border-radius: 12px; padding: 3px; gap: 3px; }
+  .periods button { border: 0; background: transparent; border-radius: 9px; padding: 8px 0; font-weight: 500; color: var(--muted); cursor: pointer; }
+  .periods button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+
+  .days { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: var(--s3) calc(-1 * var(--s4)) 0; padding: 0 var(--s4); scroll-snap-type: x proximity; }
+  .days::-webkit-scrollbar { display: none; }
+  .day { flex: none; width: 46px; padding: 7px 0 8px; border: 0; border-radius: 12px; background: var(--card); text-align: center; cursor: pointer; scroll-snap-align: end; }
+  .day b { display: block; font-size: 17px; font-weight: 600; }
+  .day small { display: block; font-size: 11px; color: var(--muted); }
+  .day[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+  .day[aria-pressed="true"] small { color: inherit; opacity: .8; }
+  .range { margin: var(--s3) 0 0; color: var(--muted); font-size: 13px; }
+
+  /* Voronka — sahifaning asosiy elementi */
+  .funnel { margin-top: var(--s4); background: var(--card); border-radius: 18px; padding: var(--s5) var(--s4) var(--s4); }
+  .stage { position: relative; }
+  .stage + .stage { margin-top: var(--s4); }
+  .stage .label { color: var(--muted); font-size: 13px; }
+  .stage .value { font-size: 30px; font-weight: 750; letter-spacing: -0.02em; line-height: 1.1; }
+  .stage .sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .bar { height: 10px; border-radius: 6px; background: color-mix(in srgb, var(--accent) 14%, transparent); margin-top: var(--s2); overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 6px; background: var(--accent); width: 0; transition: width .6s cubic-bezier(.2,.8,.2,1); }
+  .stage:nth-child(3) .bar i { background: var(--good); }
+
+  section.block { margin-top: var(--s4); background: var(--card); border-radius: 18px; padding: var(--s4); }
+  section.block h2 { margin: 0 0 var(--s3); font-size: 15px; font-weight: 600; }
+  .rows { margin: 0; }
+  .rows div { display: flex; justify-content: space-between; padding: 9px 0; border-top: 1px solid var(--line); }
+  .rows div:first-child { border-top: 0; padding-top: 0; }
+  .rows dt { color: var(--muted); }
+  .rows dd { margin: 0; font-weight: 600; }
+
+  .stack { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--line); margin-bottom: var(--s3); }
+  .stack span { display: block; height: 100%; }
+  .legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 8px; vertical-align: 1px; }
+
+  .note { color: var(--muted); font-size: 13px; margin-top: var(--s2); }
+  .err { color: var(--bad); font-size: 13px; }
+
+  /* Ruxsat so'rash, admin */
+  .center { text-align: center; padding: var(--s6) var(--s2); }
+  .center h1 { font-size: 22px; font-weight: 750; margin: 0 0 var(--s2); letter-spacing: -0.01em; }
+  .center p { color: var(--muted); margin: 0 auto var(--s5); max-width: 32ch; }
+  .pick { display: grid; gap: var(--s2); text-align: left; }
+  .pick label { display: flex; align-items: center; gap: var(--s3); background: var(--card); border-radius: 14px; padding: 14px var(--s4); cursor: pointer; font-weight: 500; }
+  .pick input { accent-color: var(--accent); width: 18px; height: 18px; }
+  .pick .tag { margin-left: auto; font-size: 12px; color: var(--muted); font-weight: 400; }
+  .btn { display: block; width: 100%; border: 0; border-radius: 14px; padding: 14px; background: var(--accent); color: var(--on-accent); font-weight: 600; margin-top: var(--s4); cursor: pointer; }
+  .btn:disabled { opacity: .45; }
+  .btn.ghost { background: transparent; color: var(--accent); margin-top: var(--s2); }
+
+  .topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--s3); }
+  .topbar strong { font-size: 17px; font-weight: 750; }
+  .admin-link { border: 0; background: var(--card); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: var(--bad); color: #fff; font-size: 11px; line-height: 18px; text-align: center; margin-left: 4px; }
+  .req { background: var(--card); border-radius: 14px; padding: var(--s4); margin-top: var(--s2); }
+  .req .who { font-weight: 600; }
+  .req .what { color: var(--muted); font-size: 13px; margin: 2px 0 var(--s3); }
+  .req .acts { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); }
+  .req .acts button { border: 0; border-radius: 10px; padding: 10px; font-weight: 600; cursor: pointer; }
+  .ok { background: color-mix(in srgb, var(--good) 15%, transparent); color: var(--good); }
+  .no { background: color-mix(in srgb, var(--bad) 13%, transparent); color: var(--bad); }
+  .empty { color: var(--muted); padding: var(--s4) 0; }
+
+  .skeleton { border-radius: 18px; background: var(--card); height: 230px; margin-top: var(--s4); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .55; } }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } .skeleton { animation: none; } }
+</style>
+</head>
+<body>
+
+<div id="loading" class="skeleton" aria-label="Yuklanmoqda"></div>
+
+<!-- Statistika -->
+<main id="stats" class="hidden">
+  <div class="topbar">
+    <strong>Statistika</strong>
+    <button id="toAdmin" class="admin-link hidden" type="button">So'rovlar<span id="reqBadge" class="badge hidden"></span></button>
+  </div>
+  <nav id="projects" class="projects" aria-label="Loyihalar"></nav>
+
+  <div class="periods" role="group" aria-label="Davr">
+    <button type="button" data-p="day" aria-pressed="true">Kun</button>
+    <button type="button" data-p="7">7 kun</button>
+    <button type="button" data-p="month">Shu oy</button>
+    <button type="button" data-p="30">30 kun</button>
+  </div>
+  <div id="days" class="days" aria-label="Kunni tanlang"></div>
+  <p id="range" class="range num"></p>
+
+  <div id="body"></div>
+</main>
+
+<!-- Ruxsat so'rash -->
+<main id="ask" class="hidden">
+  <div class="center">
+    <h1>Statistikani ko'rish</h1>
+    <p>O'z loyihangizni belgilang. So'rovingizni admin tasdiqlagach, statistika shu yerda ochiladi.</p>
+    <div id="pick" class="pick"></div>
+    <button id="send" class="btn" type="button" disabled>So'rov yuborish</button>
+  </div>
+</main>
+
+<!-- Admin -->
+<main id="admin" class="hidden">
+  <div class="topbar">
+    <strong>So'rovlar</strong>
+    <button id="toStats" class="admin-link" type="button">Statistikaga qaytish</button>
+  </div>
+  <div id="reqList"></div>
+  <section class="block">
+    <h2>Ruxsati borlar</h2>
+    <div id="userList"></div>
+  </section>
+</main>
+
+<main id="fail" class="hidden"><div class="center"><h1>Ochib bo'lmadi</h1><p id="failText"></p>
+  <button class="btn" type="button" onclick="location.reload()">Qayta urinish</button></div></main>
+
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbx_JTTFKerc6WwbtKwUbZ3AgCbv13aJ6SFN4CNuCoLhEGMT_oxJGjVEW2UP_F76dTKp/exec';
+const tg = window.Telegram && Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+const initData = tg ? tg.initData : '';
+
+const $ = (id) => document.getElementById(id);
+const show = (id) => ['loading','stats','ask','admin','fail'].forEach(x => $(x).classList.toggle('hidden', x !== id));
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const haptic = (t) => { try { tg && tg.HapticFeedback.selectionChanged(); } catch (e) {} };
+
+async function api(action, params = {}) {
+  const q = new URLSearchParams({ action, initData, ...params });
+  const r = await fetch(API + '?' + q.toString());
+  const d = await r.json();
+  if (!d.ok) throw new Error(d.error || 'Xatolik');
+  return d;
+}
+
+/* ---------- Sana yordamchilari ---------- */
+const MONTHS = ['yan','fev','mar','apr','may','iyun','iyul','avg','sen','okt','noy','dek'];
+const WD = ['Ya','Du','Se','Ch','Pa','Ju','Sh'];
+const ymd = (d) => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+const today = new Date(); today.setHours(0,0,0,0);
+const human = (d) => d.getDate() + '-' + MONTHS[d.getMonth()];
+
+/* ---------- Holat ---------- */
+let me = null, project = null, period = 'day', day = addDays(today, -1);
+
+async function start() {
+  if (!initData) { $('failText').textContent = 'Bu sahifa faqat Telegram\'dagi bot orqali ochiladi.'; return show('fail'); }
+  try { me = await api('me'); }
+  catch (e) { $('failText').textContent = e.message; return show('fail'); }
+  if (me.allowed.length) {
+    project = me.allowed[0];
+    show('stats'); renderProjects(); renderDays(); load();
+    if (me.isAdmin) { $('toAdmin').classList.remove('hidden'); refreshBadge(); }
+  } else renderAsk();
+}
+
+/* ---------- Ruxsat so'rash ---------- */
+function renderAsk() {
+  const pick = $('pick');
+  pick.innerHTML = me.projects.map(p => {
+    const pending = me.pending.includes(p);
+    return `<label><input type="radio" name="proj" value="${esc(p)}" ${pending ? 'disabled' : ''}> ${esc(p)}
+      ${pending ? '<span class="tag">Kutilmoqda</span>' : ''}</label>`;
+  }).join('') || '<p class="empty">Hozircha loyiha yo\'q.</p>';
+  pick.onchange = () => { $('send').disabled = !pick.querySelector('input:checked'); haptic(); };
+  $('send').onclick = async () => {
+    const v = pick.querySelector('input:checked'); if (!v) return;
+    $('send').disabled = true; $('send').textContent = 'Yuborilmoqda…';
+    try {
+      await api('request', { project: v.value });
+      me.pending.push(v.value); renderAsk();
+      $('send').textContent = 'So\'rov yuborildi';
+      tg && tg.showAlert('So\'rov adminga yuborildi. Tasdiqlangach, botdan xabar keladi.');
+    } catch (e) { $('send').disabled = false; $('send').textContent = 'So\'rov yuborish'; tg ? tg.showAlert(e.message) : alert(e.message); }
+  };
+  show('ask');
+}
+
+/* ---------- Loyihalar va sanalar ---------- */
+function renderProjects() {
+  const nav = $('projects');
+  nav.classList.toggle('hidden', me.allowed.length < 2);
+  nav.innerHTML = me.allowed.map(p => `<button class="chip" type="button" aria-pressed="${p === project}">${esc(p)}</button>`).join('');
+  nav.querySelectorAll('.chip').forEach((b, i) => b.onclick = () => { project = me.allowed[i]; haptic(); renderProjects(); load(); });
+}
+
+function renderDays() {
+  const box = $('days');
+  box.classList.toggle('hidden', period !== 'day');
+  const items = [];
+  for (let i = 44; i >= 0; i--) {
+    const d = addDays(today, -i);
+    const label = i === 0 ? 'Bugun' : i === 1 ? 'Kecha' : WD[d.getDay()];
+    items.push(`<button class="day" type="button" data-d="${ymd(d)}" aria-pressed="${ymd(d) === ymd(day)}"><small>${label}</small><b class="num">${d.getDate()}</b><small>${MONTHS[d.getMonth()]}</small></button>`);
+  }
+  box.innerHTML = items.join('');
+  box.querySelectorAll('.day').forEach(b => b.onclick = () => {
+    const [y,m,dd] = b.dataset.d.split('-').map(Number); day = new Date(y, m-1, dd); haptic(); renderDays(); load();
+  });
+  requestAnimationFrame(() => {
+    const sel = box.querySelector('[aria-pressed="true"]');
+    if (sel) box.scrollLeft = sel.offsetLeft - box.clientWidth / 2 + sel.offsetWidth / 2;
+  });
+}
+
+document.querySelectorAll('.periods button').forEach(b => b.onclick = () => {
+  period = b.dataset.p; haptic();
+  document.querySelectorAll('.periods button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  renderDays(); load();
+});
+
+function currentRange() {
+  if (period === 'day') return [day, day];
+  if (period === 'month') return [new Date(today.getFullYear(), today.getMonth(), 1), today];
+  const n = Number(period); return [addDays(today, -(n - 1)), today];
+}
+
+/* ---------- Statistika ---------- */
+const money = (x, c) => x == null ? '—' : (c === 'UZS' ? Math.round(x).toLocaleString('ru-RU') + ' so\'m' : '$' + x.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const int = (x) => Number(x || 0).toLocaleString('ru-RU');
+const STATUS_COLORS = { 'yangi':'#8a93a6', 'qayta aloqa':'#e6a23c', 'jarayonda':'#3a6df0', "ma'lumot berildi":'#8b5cf6', 'sotib oldi':'#1f9d6b', 'qabul qilindi':'#1f9d6b', 'rad etildi':'#d6453d', 'belgilanmagan':'#c3c7d1' };
+const ORDER = ['Yangi','Belgilanmagan','Qayta aloqa','Jarayonda',"Ma'lumot berildi",'Sotib oldi','Qabul qilindi','Rad etildi'];
+
+let reqSeq = 0;
+async function load() {
+  const [a, b] = currentRange();
+  $('range').textContent = a.getTime() === b.getTime() ? human(a) + ', ' + a.getFullYear() : human(a) + ' – ' + human(b) + ', ' + b.getFullYear();
+  $('body').innerHTML = '<div class="skeleton"></div>';
+  const my = ++reqSeq;
+  try {
+    const d = await api('stats', { project, since: ymd(a), until: ymd(b) });
+    if (my === reqSeq) renderStats(d);
+  } catch (e) { if (my === reqSeq) $('body').innerHTML = `<section class="block"><p class="err">${esc(e.message)}</p></section>`; }
+}
+
+function renderStats(d) {
+  const ads = d.ads, s = d.sales, cur = ads ? ads.currency : '';
+  const leads = ads ? ads.leads : 0, sales = s ? s.sales : 0, base = Math.max(leads, s ? s.total : 0, 1);
+  const pct = (x) => Math.max(x ? 4 : 0, Math.round(x / base * 100));
+  let h = `<div class="funnel">
+    <div class="stage"><div class="label">Reklamaga sarflandi</div><div class="value num">${ads ? money(ads.spend, cur) : '—'}</div>
+      <div class="sub num">${ads && ads.budget != null ? 'Kunlik budjet hozir: ' + money(ads.budget, cur) : ''}</div></div>
+    <div class="stage"><div class="label">Leadlar</div><div class="value num">${int(leads)}</div>
+      <div class="sub num">${ads && ads.cpl != null ? '1 lead narxi: ' + money(ads.cpl, cur) : 'Lead yo\'q'}</div>
+      <div class="bar"><i style="--w:${pct(leads)}%"></i></div></div>
+    <div class="stage"><div class="label">Sotuvlar</div><div class="value num">${int(sales)}</div>
+      <div class="sub num">${s && s.total ? 'Konversiya ' + s.conversion.toFixed(1) + '%' : ''}${ads && sales ? ' · 1 sotuv narxi ' + money(ads.spend / sales, cur) : ''}</div>
+      <div class="bar"><i style="--w:${pct(sales)}%"></i></div></div>
+    ${d.adsError ? `<p class="err">Meta: ${esc(d.adsError)}</p>` : ''}
+  </div>`;
+
+  if (ads) h += `<section class="block"><h2>Reklama</h2><dl class="rows">
+    <div><dt>Ko'rishlar</dt><dd class="num">${int(ads.impressions)}</dd></div>
+    <div><dt>Qamrov</dt><dd class="num">${int(ads.reach)}</dd></div>
+    <div><dt>Bosishlar</dt><dd class="num">${int(ads.clicks)}</dd></div>
+    <div><dt>CTR</dt><dd class="num">${ads.ctr.toFixed(2)}%</dd></div>
+    <div><dt>1 bosish narxi</dt><dd class="num">${money(ads.cpc, cur)}</dd></div></dl></section>`;
+
+  h += `<section class="block"><h2>Sotuv bo'limi</h2>`;
+  if (d.salesError) h += `<p class="err">${esc(d.salesError)}</p>`;
+  else if (!s.total) h += `<p class="empty">Bu davrda jadvalga lead tushmagan.</p>`;
+  else {
+    const entries = Object.entries(s.statuses).sort((x, y) => (ORDER.indexOf(x[0]) + 99 * (ORDER.indexOf(x[0]) < 0)) - (ORDER.indexOf(y[0]) + 99 * (ORDER.indexOf(y[0]) < 0)));
+    const col = (k) => STATUS_COLORS[k.toLowerCase()] || '#a0a6b4';
+    h += `<div class="stack" aria-hidden="true">${entries.map(([k, v]) => `<span style="width:${v / s.total * 100}%;background:${col(k)}"></span>`).join('')}</div>
+      <dl class="rows legend">${entries.map(([k, v]) => `<div><dt><span class="dot" style="background:${col(k)}"></span>${esc(k)}</dt><dd class="num">${v}</dd></div>`).join('')}
+      <div><dt>Jami</dt><dd class="num">${s.total}</dd></div></dl>`;
+  }
+  h += `</section>`;
+  $('body').innerHTML = h;
+  requestAnimationFrame(() => document.querySelectorAll('.bar i').forEach(i => i.style.width = i.style.getPropertyValue('--w')));
+}
+
+/* ---------- Admin ---------- */
+async function refreshBadge() {
+  try { const a = await api('admin'); const n = a.requests.length;
+    $('reqBadge').textContent = n; $('reqBadge').classList.toggle('hidden', !n); return a; } catch (e) { return null; }
+}
+$('toAdmin').onclick = async () => { show('admin'); $('reqList').innerHTML = '<div class="skeleton" style="height:90px"></div>'; renderAdmin(await refreshBadge()); };
+$('toStats').onclick = () => show('stats');
+
+function renderAdmin(a) {
+  if (!a) { $('reqList').innerHTML = '<p class="err">Ma\'lumotni olib bo\'lmadi.</p>'; return; }
+  $('reqList').innerHTML = a.requests.length ? a.requests.map(r => `
+    <div class="req"><div class="who">${esc(r.name)}${r.username ? ' <span style="color:var(--muted);font-weight:400">@' + esc(r.username) + '</span>' : ''}</div>
+      <div class="what">"${esc(r.project)}" statistikasini so'radi</div>
+      <div class="acts"><button class="ok" type="button" data-id="${esc(r.id)}" data-d="approve">Tasdiqlash</button>
+        <button class="no" type="button" data-id="${esc(r.id)}" data-d="reject">Rad etish</button></div></div>`).join('')
+    : '<p class="empty">Yangi so\'rov yo\'q.</p>';
+  $('reqList').querySelectorAll('button').forEach(b => b.onclick = async () => {
+    b.parentElement.querySelectorAll('button').forEach(x => x.disabled = true);
+    try { await api('decide', { id: b.dataset.id, decision: b.dataset.d });
+      tg && tg.HapticFeedback.notificationOccurred('success');
+      renderAdmin(await refreshBadge()); }
+    catch (e) { tg ? tg.showAlert(e.message) : alert(e.message); }
+  });
+  $('userList').innerHTML = a.users.length ? '<dl class="rows">' + a.users.map(u => u.projects.map(p => `
+    <div><dt>${esc(u.name)}${u.username ? ' @' + esc(u.username) : ''}<br><small>${esc(p)}</small></dt>
+    <dd><button class="no" style="border:0;border-radius:8px;padding:6px 10px;cursor:pointer" type="button" data-u="${esc(u.userId)}" data-p="${esc(p)}">Olib qo'yish</button></dd></div>`).join('')).join('') + '</dl>'
+    : '<p class="empty">Hozircha hech kimga ruxsat berilmagan.</p>';
+  $('userList').querySelectorAll('button').forEach(b => b.onclick = () => {
+    const go = async () => { await api('revoke', { userId: b.dataset.u, project: b.dataset.p }); renderAdmin(await refreshBadge()); };
+    tg ? tg.showConfirm('Ruxsatni olib qo\'yasizmi?', ok => ok && go()) : (confirm('Ruxsatni olib qo\'yasizmi?') && go());
+  });
+}
+
+start();
+</script>
+</body>
+</html>
