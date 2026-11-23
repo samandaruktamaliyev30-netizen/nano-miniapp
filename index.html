@@ -107,7 +107,8 @@
   .hello p { margin: 4px 0 0; color: var(--muted); }
   .plist { display: grid; gap: var(--s2); }
   .pitem { display: flex; align-items: center; gap: var(--s3); width: 100%; text-align: left; border: 2px solid transparent; background: var(--card); border-radius: 16px; padding: 14px var(--s4); cursor: pointer; }
-  .pitem .mark { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 750; font-size: 17px; color: #fff; }
+  .pitem .mark { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; font-weight: 750; font-size: 17px; color: #fff; position: relative; overflow: hidden; }
+  .pitem .mark img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: var(--card); }
   .pitem .nm { font-weight: 600; line-height: 1.25; }
   .pitem .st { display: block; font-size: 13px; color: var(--muted); font-weight: 400; margin-top: 2px; }
   .pitem .chev { margin-left: auto; color: var(--muted); font-size: 20px; }
@@ -222,6 +223,8 @@ async function start() {
   if (!me.isAdmin && me.allowed.length === 1) openProject(me.allowed[0]);  // mijoz — darrov o'z loyihasi
 }
 
+// Loyiha rasmi: logos/<nomi>.jpg (kichik harf, faqat harf va raqam). Rasm bo'lmasa — bosh harf ko'rinadi.
+const logoUrl = (name) => 'logos/' + name.toLowerCase().replace(/[^a-z0-9]/g, '') + '.jpg';
 const MARK_COLORS = ['#3a6df0', '#8b5cf6', '#1f9d6b', '#e6a23c', '#d6453d', '#0ea5b7'];
 let picked = null;
 
@@ -237,7 +240,7 @@ function renderHome() {
     const ok = me.allowed.includes(p.name), wait = me.pending.includes(p.name);
     const st = !p.connected ? 'Hali ulanmagan' : ok ? 'Statistikani ko\'rish' : wait ? 'So\'rov yuborilgan, kutilmoqda' : 'Ruxsat kerak';
     return `<button class="pitem" type="button" data-i="${i}" aria-pressed="${picked === p.name}">
-      <span class="mark" style="background:${MARK_COLORS[i % MARK_COLORS.length]}">${esc(p.name.trim()[0] || '?')}</span>
+      <span class="mark" style="background:${MARK_COLORS[i % MARK_COLORS.length]}">${esc(p.name.trim()[0] || '?')}<img src="${logoUrl(p.name)}" alt="" onerror="this.remove()"></span>
       <span class="nm">${esc(p.name)}<span class="st ${ok ? 'ok' : ''}">${st}</span></span>
       ${ok ? '<span class="chev" aria-hidden="true">›</span>' : ''}</button>`;
   }).join('') || '<p class="empty">Hozircha loyiha yo\'q.</p>';
