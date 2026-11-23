@@ -334,6 +334,7 @@ async function load() {
 }
 
 function renderStats(d, stale) {
+  if (d.paused) { $('body').innerHTML = `<section class="block"><p class="empty">⏸ Statistika vaqtincha to'xtatilgan.<br>${esc(d.paused)}</p></section>`; return; }
   if (d.notConnected) { $('body').innerHTML = '<section class="block"><p class="empty">Bu loyiha hali ulanmagan. Reklama kabineti va jadval ulangach, statistika shu yerda chiqadi.</p></section>'; return; }
   const ads = d.ads, s = d.sales, cur = ads ? ads.currency : '';
   const leads = ads ? ads.leads : 0, sales = s ? s.sales : 0, base = Math.max(leads, s ? s.total : 0, 1);
