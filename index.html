@@ -313,18 +313,27 @@ const STATUS_COLORS = { 'yangi':'#8a93a6', 'qayta aloqa':'#e6a23c', 'jarayonda':
 const ORDER = ['Yangi','Belgilanmagan','Qayta aloqa','Jarayonda',"Ma'lumot berildi",'Sotib oldi','Qabul qilindi','Rad etildi'];
 
 let reqSeq = 0;
+// Oxirgi ko'rilgan statistika brauzerda saqlanadi: qayta kirganda darhol ko'rinadi (xatoliklarga chidamli).
+const cacheKey = (a, b) => 'nst_' + project + '_' + ymd(a) + '_' + ymd(b);
+const readCache = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+const writeCache = (k, d) => { try { localStorage.setItem(k, JSON.stringify(d)); } catch (e) {} };
+
 async function load() {
   const [a, b] = currentRange();
   $('range').textContent = a.getTime() === b.getTime() ? human(a) + ', ' + a.getFullYear() : human(a) + ' – ' + human(b) + ', ' + b.getFullYear();
-  $('body').innerHTML = '<p class="note" style="text-align:center">⏳ Statistika yuklanmoqda, 3–4 soniya kuting…</p><div class="skeleton"></div>';
   const my = ++reqSeq;
+  const key = cacheKey(a, b);
+  const old = readCache(key);
+  if (old) renderStats(old, true);
+  else $('body').innerHTML = '<p class="note" style="text-align:center">⏳ Statistika yuklanmoqda, 3–4 soniya kuting…</p><div class="skeleton"></div>';
   try {
     const d = await api('stats', { project, since: ymd(a), until: ymd(b) });
+    writeCache(key, d);
     if (my === reqSeq) renderStats(d);
-  } catch (e) { if (my === reqSeq) $('body').innerHTML = `<section class="block"><p class="err">${esc(e.message)}</p></section>`; }
+  } catch (e) { if (my === reqSeq && !old) $('body').innerHTML = `<section class="block"><p class="err">${esc(e.message)}</p></section>`; }
 }
 
-function renderStats(d) {
+function renderStats(d, stale) {
   if (d.notConnected) { $('body').innerHTML = '<section class="block"><p class="empty">Bu loyiha hali ulanmagan. Reklama kabineti va jadval ulangach, statistika shu yerda chiqadi.</p></section>'; return; }
   const ads = d.ads, s = d.sales, cur = ads ? ads.currency : '';
   const leads = ads ? ads.leads : 0, sales = s ? s.sales : 0, base = Math.max(leads, s ? s.total : 0, 1);
@@ -373,6 +382,7 @@ function renderStats(d) {
       <div><dt>Jami</dt><dd class="num">${s.total}</dd></div></dl>`;
   }
   h += `</section>`;
+  if (stale) h = '<p class="note" style="text-align:center">Oxirgi ma\'lumot · yangilanmoqda…</p>' + h;
   $('body').innerHTML = h;
   requestAnimationFrame(() => document.querySelectorAll('.bar i').forEach(i => i.style.width = i.style.getPropertyValue('--w')));
 }
