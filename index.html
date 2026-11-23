@@ -316,7 +316,7 @@ let reqSeq = 0;
 async function load() {
   const [a, b] = currentRange();
   $('range').textContent = a.getTime() === b.getTime() ? human(a) + ', ' + a.getFullYear() : human(a) + ' – ' + human(b) + ', ' + b.getFullYear();
-  $('body').innerHTML = '<div class="skeleton"></div>';
+  $('body').innerHTML = '<p class="note" style="text-align:center">⏳ Statistika yuklanmoqda, 3–4 soniya kuting…</p><div class="skeleton"></div>';
   const my = ++reqSeq;
   try {
     const d = await api('stats', { project, since: ymd(a), until: ymd(b) });
