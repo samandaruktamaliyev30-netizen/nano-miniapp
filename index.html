@@ -238,7 +238,7 @@ function renderHome() {
   const list = me.isAdmin || !mine.length ? me.projects : me.projects.filter(p => mine.includes(p.name));
   $('plist').innerHTML = list.map((p, i) => {
     const ok = me.allowed.includes(p.name), wait = me.pending.includes(p.name);
-    const st = !p.connected ? 'Hali ulanmagan' : ok ? 'Statistikani ko\'rish' : wait ? 'So\'rov yuborilgan, kutilmoqda' : 'Ruxsat kerak';
+    const st = !p.connected ? 'Jarayonda' : ok ? 'Statistikani ko\'rish' : wait ? 'So\'rov yuborilgan, kutilmoqda' : 'Ruxsat kerak';
     return `<button class="pitem" type="button" data-i="${i}" aria-pressed="${picked === p.name}">
       <span class="mark" style="background:${MARK_COLORS[i % MARK_COLORS.length]}">${esc(p.name.trim()[0] || '?')}<img src="${logoUrl(p.name)}" alt="" onerror="this.remove()"></span>
       <span class="nm">${esc(p.name)}<span class="st ${ok ? 'ok' : ''}">${st}</span></span>
