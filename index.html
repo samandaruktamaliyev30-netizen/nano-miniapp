@@ -219,6 +219,7 @@ async function start() {
   if (me.isAdmin) { $('toAdmin').classList.remove('hidden'); refreshBadge(); }
   if (tg) tg.BackButton.onClick(goHome);
   renderHome();
+  if (!me.isAdmin && me.allowed.length === 1) openProject(me.allowed[0]);  // mijoz — darrov o'z loyihasi
 }
 
 const MARK_COLORS = ['#3a6df0', '#8b5cf6', '#1f9d6b', '#e6a23c', '#d6453d', '#0ea5b7'];
@@ -229,7 +230,10 @@ function renderHome() {
   $('helloName').textContent = 'Salom, ' + first;
   $('helloText').textContent = me.isAdmin ? 'Loyihani tanlang — statistikasi ochiladi.'
     : (me.allowed.length ? 'Loyihangizni tanlang.' : 'Loyihangizni belgilang va ruxsat so\'rang.');
-  $('plist').innerHTML = me.projects.map((p, i) => {
+  // Mijoz faqat bitta loyihani ko'radi: ruxsat olgan yoki so'ragan loyihasidan boshqasi ko'rsatilmaydi.
+  const mine = me.allowed.concat(me.pending);
+  const list = me.isAdmin || !mine.length ? me.projects : me.projects.filter(p => mine.includes(p.name));
+  $('plist').innerHTML = list.map((p, i) => {
     const ok = me.allowed.includes(p.name), wait = me.pending.includes(p.name);
     const st = !p.connected ? 'Hali ulanmagan' : ok ? 'Statistikani ko\'rish' : wait ? 'So\'rov yuborilgan, kutilmoqda' : 'Ruxsat kerak';
     return `<button class="pitem" type="button" data-i="${i}" aria-pressed="${picked === p.name}">
@@ -238,7 +242,7 @@ function renderHome() {
       ${ok ? '<span class="chev" aria-hidden="true">›</span>' : ''}</button>`;
   }).join('') || '<p class="empty">Hozircha loyiha yo\'q.</p>';
   $('plist').querySelectorAll('.pitem').forEach(b => b.onclick = () => {
-    const p = me.projects[+b.dataset.i]; haptic();
+    const p = list[+b.dataset.i]; haptic();
     if (me.allowed.includes(p.name)) return openProject(p.name);
     if (me.pending.includes(p.name)) return tg ? tg.showAlert('So\'rovingiz adminga yuborilgan. Tasdiqlangach, botdan xabar keladi.') : null;
     picked = p.name; renderHome();
